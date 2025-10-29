@@ -2,26 +2,17 @@ const express = require("express");
 
 const app = express();
 
-app.use(
-  "/user",
-  (req, res, next) => {
-    // route handler
-    console.log("route handler 1");
-    next();
-  },
-  (req, res, next) => {
-    console.log("route handler 2");
-    next();
-  },
-  (req, res, next) => {
-    console.log("route handler 3");
-    next();
-  },
-  (req, res) => {
-    res.send("route handler 4");
-  }
-);
+const { adminAuth } = require("./middlewares/auth");
 
+app.use("/admin", adminAuth);
+
+app.get("/admin/getAllData", (req, res) => {
+  res.send("All Data is Sent");
+});
+
+app.get("/admin/deleteUser", (req, res) => {
+  res.send("Deleted User");
+});
 app.listen(3000, () => {
   console.log("Server is succesfully lsiting on port have 3000...");
 });
