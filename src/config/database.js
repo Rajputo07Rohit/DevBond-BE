@@ -1,9 +1,13 @@
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
-  await mongoose.connect(
-    "mongodb+srv://Rohit123:Rohit0870@namastenode.4buqp7i.mongodb.net/DevBond-BE"
-  );
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("MongoDB Connected ✅");
+  } catch (error) {
+    console.log("MongoDB Connection Failed ❌", error);
+    throw error;
+  }
 };
 
 module.exports = connectDB;
