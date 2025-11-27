@@ -4,6 +4,9 @@ const express = require("express");
 const connectDB = require("./config/database");
 const cors = require("cors");
 
+const http = require("http");
+const initializeSocket = require("./utils/socket");
+
 const { validateSignUpData } = require("./utils/validation");
 
 const cookieParser = require("cookie-parser");
@@ -29,10 +32,13 @@ app.use("/", profileRouter);
 app.use("/", requestRouter);
 app.use("/", userRouter);
 
+const server = http.createServer(app);
+initializeSocket(server);
+
 connectDB()
   .then(() => {
     console.log("Database connection done...");
-    app.listen(3000, () => {
+    server.listen(3000, () => {
       console.log("Server is successfully listening on port 3000...");
     });
   })
