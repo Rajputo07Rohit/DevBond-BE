@@ -1,6 +1,9 @@
 const socket = require("socket.io");
 const crypto = require("crypto");
 const Chat = require("../models/chat");
+const ConnectionRequestModel = require("../models/connectionRequest");
+
+let onlineUsers = new Map();
 
 const getSecretRoomId = (userId, targetUserId) => {
   return crypto
@@ -11,28 +14,45 @@ const getSecretRoomId = (userId, targetUserId) => {
 
 const initializeSocket = (server) => {
   const io = socket(server, {
-    cors: {
-      origin: "http://localhost:5173",
-    },
+    cors: { origin: "http://localhost:5173" },
   });
 
   io.on("connection", (socket) => {
-    // handle events
+    console.log("User connected:", socket.id);
 
     socket.on("joinChat", ({ userId, targetUserId }) => {
       const roomId = getSecretRoomId(userId, targetUserId);
 
-      console.log("joining Room :" + roomId);
+      // Store user online
+      onlineUsers.set(userId, socket.id);
+
+      // Notify frontend
+      io.emit("userOnline", userId);
+
       socket.join(roomId);
+      console.log("Joined room:", roomId);
     });
 
     socket.on(
       "sendMessage",
       async ({ firstName, lastName, userId, targetUserId, text }) => {
         try {
+          // FRIEND CHECK (CORRECT)
+          const existingConnectionRequest =
+            await ConnectionRequestModel.findOne({
+              status: "accepted",
+              $or: [
+                { fromUserId: userId, toUserId: targetUserId },
+                { fromUserId: targetUserId, toUserId: userId },
+              ],
+            });
+
+          if (!existingConnectionRequest) {
+            return;
+          }
+
           const roomId = getSecretRoomId(userId, targetUserId);
 
-          // save message to the database
           let chat = await Chat.findOne({
             participants: { $all: [userId, targetUserId] },
           });
@@ -51,21 +71,30 @@ const initializeSocket = (server) => {
 
           await chat.save();
 
-          console.log(firstName + lastName + " " + text);
           io.to(roomId).emit("messageReceived", {
             userId,
-            targetUserId,
             firstName,
             lastName,
             text,
+            createdAt: new Date().toISOString(),
           });
         } catch (err) {
-          console.log("ERROR" + err);
+          console.log("ERROR", err);
         }
       }
     );
 
-    socket.on("disconnect", () => {});
+    socket.on("disconnect", () => {
+      for (const [uid, sid] of onlineUsers.entries()) {
+        if (sid === socket.id) {
+          onlineUsers.delete(uid);
+          io.emit("userOffline", {
+            userId: uid,
+            lastSeen: new Date(),
+          });
+        }
+      }
+    });
   });
 };
 
